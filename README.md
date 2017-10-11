@@ -8,8 +8,9 @@ main-aggregate_Items.py [-h] [-G GRAPH_NAME] [-C CALCULATED_ITEM_NAME]
                
 ## Example 
 
-- Generate calculated item and graph from matched items in Regex. 
-python3 main-aggregate_Items.py -G "My Graph Name" -C "Calculated Item name" -H "router.*" -i "ethernet\d+\/\d+"
+- Generate calculated item and graph from matched items in Regex.   
+
+*python3 main-aggregate_Items.py -G "My Graph Name" -C "Calculated Item name" -H "router.*" -i "ethernet\d+\/\d+"*  
 
 - Search by key name, use -k or --search_by_key argument
 - Dry-Run (no item calculated and graph creation), use --dry-run
@@ -17,8 +18,8 @@ python3 main-aggregate_Items.py -G "My Graph Name" -C "Calculated Item name" -H 
 
 ## Limitation 
 
+- Calculated Items only last and sum supported 
 - No color selection on Graphline items  
 - No settings of graph  
-
 
 ## License MIT 
