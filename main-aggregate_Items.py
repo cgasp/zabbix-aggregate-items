@@ -73,6 +73,9 @@ def arg_parse():
         
         Calculated Item Specific : 
             - Key Item will be generated based on "api_key_calculated_item.{{ random.randrange(10000, 99999) }}"
+            
+            
+        Example : 
     """
 
     parser = argparse.ArgumentParser(description=text_description, formatter_class=argparse.RawTextHelpFormatter)
