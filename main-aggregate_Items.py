@@ -74,7 +74,6 @@ def arg_parse():
         Calculated Item Specific : 
             - Key Item will be generated based on "api_key_calculated_item.{{ random.randrange(10000, 99999) }}"
             
-            
         Example : 
     """
 
@@ -83,6 +82,10 @@ def arg_parse():
                         action='store', type=str, help='Name for graph with founded items')
     parser.add_argument('-C', dest='calculated_item_name',
                         action='store', type=str, help='Calculated Item name with founded items')
+    parser.add_argument('-O', dest='calculated_item_operator', default='+',
+                        action='store', type=str, help="Operator to use for the Calculated Item ('+','-','/','*'")
+    parser.add_argument('-F', dest='calculated_item_function', default='last',
+                        action='store', type=str, help='Function to use for the Calculated Item (last, min, max, avg, count)')
     parser.add_argument('-H', '--re_host', dest='re_host',
                         action='store', type=str, required=True, help='Regex for Host Selection')
     parser.add_argument('-i', '--re_item', dest='re_item',
@@ -154,33 +157,40 @@ def retrieve_keys_for_formula(items_matched, items):
     return key_items_list
 
 
-def generate_formula(key_items_list):
-    key_items_list = ["last(" + key_item + ")" for key_item in key_items_list]
-    return '+'.join(key_items_list)
+def generate_formula(key_items_list, calculated_item_operator, calculated_item_function):
+    """ Generate formula for Calculated Item """
 
+    valid_function = ['last', 'min', 'max', 'avg', 'count']
+    valid_operator = ['+', '-', '/', '*']
 
-def calculatedItem(zapi, hostid, calculated_item_name, key, items_matched):
+    if calculated_item_operator in valid_operator and calculated_item_function in valid_function:
+        key_items_list = [calculated_item_function + "(" + key_item + ")" for key_item in key_items_list]
+        return calculated_item_operator.join(key_items_list)
+    else:
+        return False
 
-    items = zapi.item.get(hostids = hostid, output = 'extend')
+def createCalculatedItem(zapi, hostid, calculated_item_name, key, items_matched, formula, calculated_item_operator, calculated_item_function):
+    """ Create Calculated from a generated formula """
 
-    formula = generate_formula(retrieve_keys_for_formula(items_matched, items))
+    if formula:
+        item = zapi.item.create(
+            name=calculated_item_name,  #
+            key_=key,  #
+            hostid=hostid,  #
+            type=15,
+            value_type=0,
+            params=formula,
+            # interfaceid = interfaceid, # optional for calculated items
+            delay=60
+        )
 
-    item = zapi.item.create(
-        name=calculated_item_name,  #
-        key_=key,  #
-        hostid=hostid,  #
-        type=15,
-        value_type=0,
-        params=formula,
-        # interfaceid = interfaceid, # optional for calculated items
-        delay=60
-    )
-
-    print(
-        "[INFO] calculated Item created\n"
-        "\tname : " + calculated_item_name+"\n" 
-        "\tkey_: " + key
-          )
+        print(
+            "[INFO] calculated Item created\n"
+            "\tname : " + calculated_item_name+"\n" 
+            "\tkey_: " + key
+              )
+    else :
+        print("[WARNING] Problem with Operator and Function of Calculated Item Formula")
 
 
 ###############################################################################
@@ -188,6 +198,9 @@ def calculatedItem(zapi, hostid, calculated_item_name, key, items_matched):
 # Search Items in one Host
 #
 #
+def returnItemList(zapi, hostid):
+    return zapi.item.get(hostids = hostid, output = 'extend')
+
 def retrieve_string_from_regex(pattern, string):
     # Return substring or False if not found
     try:
@@ -200,7 +213,7 @@ def search_items_in_one_Host(zapi,re_item, host, search_by_key):
     # Look for regex in item name (or key) in one Host
     regex_item = re.compile(re_item)
 
-    itemList =  zapi.item.get(hostids = host, output='extend')
+    itemList =  returnItemList(zapi, host)
     items_matched = {}
 
     if search_by_key:
@@ -261,7 +274,6 @@ def main():
     # Connect to Zabbix
     zapi = ZabbixAPI(url=zabbixurl, user=user, password=password)
 
-
     # re_host = 'lsr01.*'
     # re_item = '.*ps10.*'
 
@@ -292,9 +304,15 @@ def main():
 
                     # Create Calculated Item
                     calculatedItemKey = "api_key_calculated_item." + str(random.randrange(10000, 99999))
-                    calculatedItem(zapi, host, args.calculated_item_name, calculatedItemKey, items_matched)
+                    formula = generate_formula(retrieve_keys_for_formula(items_matched, returnItemList(zapi, host)),
+                                               args.calculated_item_operator, args.calculated_item_function)
+                    createCalculatedItem(zapi, host, args.calculated_item_name, calculatedItemKey, items_matched,
+                                         formula, args.calculated_item_operator, args.calculated_item_function)
+
             else:
                 print("[INFO] DRY-RUN\n\tItem Matched : " + str(items_matched))
+                if args.calculated_item_name:
+                    print("[INFO] DRY-RUN\t Calculated Item Formula : " + generate_formula(retrieve_keys_for_formula(items_matched, returnItemList(zapi, host)),args.calculated_item_operator, args.calculated_item_function))
 
         else:
             print("[WARNING] No Items founded for the given Regular Expression - Please correct")
